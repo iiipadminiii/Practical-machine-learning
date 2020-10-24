@@ -1,0 +1,124 @@
+---
+title: "Practical Machine Learning Project"
+author: "padmini"
+date: "23/10/2020"
+output: html_document
+---
+Loading the required libraries:
+```{r libs}
+library(caret)
+```
+```{r}
+library(rpart)
+library(ggplot2)
+library(corrplot)
+library(randomForest)
+```
+
+```{r}
+library(rattle)
+```
+
+
+```{r}
+set.seed(12345)
+```
+
+Loadning the Data
+
+```{r data loading}
+train_raw <- read.csv("C:\\Users\\padmini\\Downloads\\pml-training.csv")[,-1]
+test_data <- read.csv("C:\\Users\\padmini\\Downloads\\pml-testing.csv")[,-1]
+```
+
+Checking the dimensions of the data
+```{r dimensions}
+# now lets check the dimensions of the training and test datasets
+dim(train_raw)
+dim(test_data)
+
+```
+Cleaning the Data
+```{r cleaning data}
+# remove predictors that have many missing/NA values or non-unique values
+NZV <- nearZeroVar(train_raw)
+training<- train_raw[, -NZV]
+testing <- test_data[, -NZV]
+
+# remove cases that have many missing/NA values
+NaValues <- sapply(training, function(x) mean(is.na(x))) > 0.9
+training <- training[, NaValues == "FALSE"]
+testing <- testing[, NaValues == "FALSE"]
+
+# remove id and time variables
+training <- training[,-c(1:5)]
+testing<- testing[,-c(1:5)]
+
+# check dimension of the cleaned up dataset
+dim(training)
+dim(testing)
+```
+
+Now let us visualise the training dataset
+```{r training }
+# visualise training dataset
+head(train)
+
+```
+Creating a partition in the daat
+```{r data partition prep}
+inTrain <- createDataPartition(y= training$classe, p = 0.7, list = FALSE)
+training <- training[inTrain, ]
+crossvalidation <- training[-inTrain, ]
+```
+
+Training model using decision trees
+```{r training model}
+# decision trees
+modelTree <- train(classe~., data = training, method = "rpart")
+
+TrainingTreePrediction <- predict(modelTree, training)
+confusionmatrixTrainingTree <- confusionMatrix(TrainingTreePrediction, training$classe)
+
+crossvalidationTreePrediction <- predict(modelTree, crossvalidation)
+confusionmatrix_cv_tree <- confusionMatrix(crossvalidationTreePrediction, crossvalidation$classe)
+
+print(confusionmatrix_cv_tree)
+```
+Training model using Random Forest
+```{r random forest}
+randomForestModel<- randomForest(classe~., data =training, method = "rf")
+predictTrainingrf <- predict(randomForestModel, training)
+confusionmatrix_training_rf <- confusionMatrix(predictTrainingrf, training$classe)
+
+predict_crossvalidation_rf <- predict(randomForestModel, crossvalidation)
+confusionmatrix_cv_rf <- confusionMatrix(predict_crossvalidation_rf, crossvalidation$classe)
+
+print(confusionmatrix_cv_rf)
+
+```
+CONCLUSION:
+It may be viewed from the confusion matrix that the accuracy of the random forest model is significantly better than the decision tree model 
+Therefore, we may preceed to use this model on the testing set
+
+```{r testing}
+test_prediction <- predict(randomForestModel, testing)
+test_prediction
+```
+APPENDIX
+```{r Appendix}
+# this section will explore the remianing predictors
+# also does the checking the factor variables
+FactorForPrediction <- which(sapply(training, class) == "factor")
+# correlation between predictors
+corPredictor <- abs(cor(training[,-FactorForPrediction]))
+corPredictor[lower.tri(corPredictor, diag = TRUE)] <- 0
+# now to visualize result
+corrplot(corPredictor, method  = "color", type = "upper", cl.lim = c(0,1), tl.col = rgb(0, 0, 0))
+```
+```{r}
+which(corPredictor > 0.8, arr.ind = TRUE)
+```
+
+
+
